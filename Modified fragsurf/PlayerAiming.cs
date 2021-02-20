@@ -1,9 +1,12 @@
 ﻿using UnityEngine;
+using Mirror;
 
 public class PlayerAiming : MonoBehaviour
 {
 	[Header("References")]
 	public Transform bodyTransform;
+
+	public NetworkBehaviour daddy;
 
 	[Header("Sensitivity")]
 	public float sensitivityMultiplier = 1f;
@@ -42,6 +45,10 @@ public class PlayerAiming : MonoBehaviour
 		// Fix pausing
 		if (Mathf.Abs(Time.timeScale) <= 0)
 			return;
+
+		if (!daddy.isLocalPlayer) {
+			return;
+		}
 
 		DecayPunchAngle();
 

@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine.Rendering;
@@ -9,7 +10,7 @@ namespace Fragsurf.Movement {
     /// Easily add a surfable character to the scene
     /// </summary>
     [AddComponentMenu ("Fragsurf/Surf Character")]
-    public class SurfCharacter : MonoBehaviour, ISurfControllable {
+    public class SurfCharacter : NetworkBehaviour, ISurfControllable {
 
         public enum ColliderType {
             Capsule,
@@ -75,6 +76,9 @@ namespace Fragsurf.Movement {
         public MoveData moveData { get { return _moveData; } }
         public new Collider collider { get { return _collider; } }
 
+        [ShowInInspector]
+        public Camera cameraGO;
+
         public GameObject groundObject {
 
             get { return _groundObject; }
@@ -87,8 +91,16 @@ namespace Fragsurf.Movement {
         public Vector3 forward { get { return viewTransform.forward; } }
         public Vector3 right { get { return viewTransform.right; } }
         public Vector3 up { get { return viewTransform.up; } }
-
+        
         Vector3 prevPosition;
+        
+        ////// Using things //////
+        
+        public GameObject useButton;
+        [Range(0.01f, 150f)] public float maxUseDistance = 5;
+        public GameObject usableGameObject;
+        public Texture useOverlayTexture;
+        private LayerMask raycastMask;
 
         ///// Methods /////
 
@@ -99,6 +111,8 @@ namespace Fragsurf.Movement {
 		}
 		
         private void Awake () {
+            
+            raycastMask = ~(1 << LayerMask.NameToLayer("Player"));
             
             _controller.playerTransform = playerRotationTransform;
             
@@ -112,6 +126,11 @@ namespace Fragsurf.Movement {
         }
 
         private void Start () {
+
+            if (!isLocalPlayer) {
+                GetComponentInChildren<Camera>().enabled = false;
+                return;
+            }
             
             _colliderObject = new GameObject ("PlayerCollider");
             _colliderObject.layer = gameObject.layer;
@@ -214,53 +233,60 @@ namespace Fragsurf.Movement {
             _moveData.useStepOffset = useStepOffset;
             _moveData.stepOffset = stepOffset;
 
+            
+
         }
 
         private void Update () {
+            if (true || isLocalPlayer) {
+                _colliderObject.transform.rotation = Quaternion.identity;
 
-            _colliderObject.transform.rotation = Quaternion.identity;
 
+                //UpdateTestBinds ();
+                if (isLocalPlayer) UpdateMoveData();
 
-            //UpdateTestBinds ();
-            UpdateMoveData ();
-            
-            // Previous movement code
-            Vector3 positionalMovement = transform.position - prevPosition;
-            transform.position = prevPosition;
-            moveData.origin += positionalMovement;
+                // Previous movement code
+                Vector3 positionalMovement = transform.position - prevPosition;
+                transform.position = prevPosition;
+                moveData.origin += positionalMovement;
 
-            // Triggers
-            if (numberOfTriggers != triggers.Count) {
-                numberOfTriggers = triggers.Count;
+                // Triggers
+                if (numberOfTriggers != triggers.Count) {
+                    numberOfTriggers = triggers.Count;
 
-                underwater = false;
-                triggers.RemoveAll (item => item == null);
-                foreach (Collider trigger in triggers) {
+                    underwater = false;
+                    triggers.RemoveAll(item => item == null);
+                    foreach (Collider trigger in triggers) {
 
-                    if (trigger == null)
-                        continue;
+                        if (trigger == null)
+                            continue;
 
-                    if (trigger.GetComponentInParent<Water> ())
-                        underwater = true;
+                        if (trigger.GetComponentInParent<Water>())
+                            underwater = true;
+
+                    }
 
                 }
 
+                _moveData.cameraUnderwater = _cameraWaterCheck.IsUnderwater();
+                _cameraWaterCheckObject.transform.position = viewTransform.position;
+                moveData.underwater = underwater;
+
+                if (allowCrouch)
+                    _controller.Crouch(this, movementConfig, Time.deltaTime);
+
+                _controller.ProcessMovement(this, movementConfig, Time.deltaTime);
+
+                CheckCrosshair();
+
+                transform.position = moveData.origin;
+                prevPosition = transform.position;
+
+                _colliderObject.transform.rotation = Quaternion.identity;
+            } else {
+                DisableInput();
+                // CheckCrosshair();
             }
-
-            _moveData.cameraUnderwater = _cameraWaterCheck.IsUnderwater ();
-            _cameraWaterCheckObject.transform.position = viewTransform.position;
-            moveData.underwater = underwater;
-            
-            if (allowCrouch)
-                _controller.Crouch (this, movementConfig, Time.deltaTime);
-
-            _controller.ProcessMovement (this, movementConfig, Time.deltaTime);
-
-            transform.position = moveData.origin;
-            prevPosition = transform.position;
-
-            _colliderObject.transform.rotation = Quaternion.identity;
-
         }
         
         private void UpdateTestBinds () {
@@ -377,6 +403,37 @@ namespace Fragsurf.Movement {
             newVelocity = Vector3.ClampMagnitude (newVelocity, Mathf.Max (moveData.velocity.magnitude, 30f));
             moveData.velocity = newVelocity;
 
+        }
+        
+        private void CheckCrosshair() {
+            Debug.DrawRay(viewTransform.position, viewTransform.forward);
+        
+            RaycastHit hit;
+            if (Physics.SphereCast(viewTransform.position, 0.2f, viewTransform.forward, out hit, maxUseDistance, raycastMask)) {
+                if (hit.collider.tag != "Interactable") {
+                    if (useButton) {
+                        useButton.active = false;
+                    }
+                    usableGameObject = null;
+                    return;
+                }
+
+                usableGameObject = hit.collider.gameObject;
+
+                if (useButton) {
+                    useButton.active = true;
+                }
+
+                NetworkedButton nb = hit.collider.gameObject.GetComponent<NetworkedButton>();
+                if (nb != null && SimpleInput.GetButtonDown("Use")) {
+                    nb.CmdExecuteAction();
+                }
+            } else {
+                usableGameObject = null;
+                if (useButton) {
+                    useButton.active = false;
+                }
+            }
         }
 
     }
