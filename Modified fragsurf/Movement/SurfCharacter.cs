@@ -126,10 +126,9 @@ namespace Fragsurf.Movement {
         }
 
         private void Start () {
-
             if (!isLocalPlayer) {
                 GetComponentInChildren<Camera>().enabled = false;
-                return;
+                // return;
             }
             
             _colliderObject = new GameObject ("PlayerCollider");
@@ -232,68 +231,62 @@ namespace Fragsurf.Movement {
 
             _moveData.useStepOffset = useStepOffset;
             _moveData.stepOffset = stepOffset;
-
-            
-
         }
 
         private void Update () {
-            if (true || isLocalPlayer) {
-                _colliderObject.transform.rotation = Quaternion.identity;
+            _colliderObject.transform.rotation = Quaternion.identity;
 
 
-                //UpdateTestBinds ();
-                if (isLocalPlayer) UpdateMoveData();
+            //UpdateTestBinds ();
+            if (isLocalPlayer) UpdateMoveData();
 
-                // Previous movement code
-                Vector3 positionalMovement = transform.position - prevPosition;
-                transform.position = prevPosition;
-                moveData.origin += positionalMovement;
+            // Previous movement code
+            Vector3 positionalMovement = transform.position - prevPosition;
+            transform.position = prevPosition;
+            moveData.origin += positionalMovement;
 
-                // Triggers
-                if (numberOfTriggers != triggers.Count) {
-                    numberOfTriggers = triggers.Count;
+            // Triggers
+            if (numberOfTriggers != triggers.Count) {
+                numberOfTriggers = triggers.Count;
 
-                    underwater = false;
-                    triggers.RemoveAll(item => item == null);
-                    foreach (Collider trigger in triggers) {
-
-                        if (trigger == null)
-                            continue;
-
-                        if (trigger.GetComponentInParent<Water>())
-                            underwater = true;
-
-                    }
-
+                underwater = false;
+                if (!isLocalPlayer) {
+                    Debug.Log(underwater);
+                }
+                
+                triggers.RemoveAll(item => item == null);
+                foreach (Collider trigger in triggers) {
+                    if (trigger == null)
+                        continue;
+                    
+                    if (trigger.GetComponentInParent<Water>())
+                        underwater = true;
                 }
 
-                _moveData.cameraUnderwater = _cameraWaterCheck.IsUnderwater();
-                _cameraWaterCheckObject.transform.position = viewTransform.position;
-                moveData.underwater = underwater;
-
-                if (allowCrouch)
-                    _controller.Crouch(this, movementConfig, Time.deltaTime);
-
-                _controller.ProcessMovement(this, movementConfig, Time.deltaTime);
-
-                CheckCrosshair();
-
-                transform.position = moveData.origin;
-                prevPosition = transform.position;
-
-                _colliderObject.transform.rotation = Quaternion.identity;
-            } else {
-                DisableInput();
-                // CheckCrosshair();
             }
+
+            _moveData.cameraUnderwater = _cameraWaterCheck.IsUnderwater();
+            _cameraWaterCheckObject.transform.position = viewTransform.position;
+            moveData.underwater = underwater;
+
+            if (allowCrouch)
+                _controller.Crouch(this, movementConfig, Time.deltaTime);
+
+            _controller.ProcessMovement(this, movementConfig, Time.deltaTime);
+
+            if (isLocalPlayer) CheckCrosshair();
+
+            transform.position = moveData.origin;
+            prevPosition = transform.position;
+
+            _colliderObject.transform.rotation = Quaternion.identity;
+            
+            Debug.DrawRay(viewTransform.position, viewTransform.forward, Color.green);
         }
         
         private void UpdateTestBinds () {
-
             if (Input.GetKeyDown (KeyCode.Backspace))
                 ResetPosition ();
-
         }
 
         private void ResetPosition () {
@@ -436,6 +429,11 @@ namespace Fragsurf.Movement {
             }
         }
 
+        public void Teleport(Vector3 position, bool resetVelocity) {
+            _controller.Teleport(position, resetVelocity);
+            _moveData.velocity = Vector3.zero;
+            _moveData.fallingVelocity = 0f;
+        }
     }
 
 }

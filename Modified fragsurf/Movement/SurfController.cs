@@ -762,5 +762,11 @@ namespace Fragsurf.Movement {
 
         }
 
+        public void Teleport(Vector3 position, bool resetVelocity = true) {
+            playerTransform.position = position;
+            if (resetVelocity)
+                speed = 0f;
+        }
+
     }
 }
