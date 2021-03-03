@@ -272,7 +272,8 @@ namespace Fragsurf.Movement {
             if (allowCrouch)
                 _controller.Crouch(this, movementConfig, Time.deltaTime);
 
-            _controller.ProcessMovement(this, movementConfig, Time.deltaTime);
+            if (isLocalPlayer)
+                _controller.ProcessMovement(this, movementConfig, Time.deltaTime);
 
             if (isLocalPlayer) CheckCrosshair();
 

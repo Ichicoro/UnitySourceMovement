@@ -1,3 +1,5 @@
+using System;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using Fragsurf.TraceUtil;
 
@@ -372,15 +374,41 @@ namespace Fragsurf.Movement {
         }
 
         private void LadderPhysics () {
+            var dotProductFront = -Vector3.Dot(_surfer.moveData.ladderNormal, _surfer.moveData.playerTransform.forward);
+            var dotProductRight = -Vector3.Dot(_surfer.moveData.ladderNormal, _surfer.moveData.playerTransform.right);
+            var rightLadderClimbDir = Quaternion.Euler(0f, 0f, 90f) * _surfer.moveData.ladderClimbDir;
             
-            _surfer.moveData.ladderVelocity = _surfer.moveData.ladderClimbDir * _surfer.moveData.verticalAxis * 6f;
+            Debug.Log(_surfer.moveData.ladderDirection);
+            
+            Debug.DrawRay(playerTransform.position, _surfer.moveData.ladderClimbDir.normalized, Color.yellow);
+            Debug.DrawRay(playerTransform.position, _surfer.moveData.ladderClimbDir.normalized, Color.red);
+            Debug.DrawRay(playerTransform.position, _surfer.moveData.ladderClimbDir.normalized, Color.blue);
 
-            _surfer.moveData.velocity = Vector3.Lerp (_surfer.moveData.velocity, _surfer.moveData.ladderVelocity, Time.deltaTime * 10f);
+            _surfer.moveData.ladderVelocity =
+                // up/dn
+                _surfer.moveData.ladderClimbDir * (_surfer.moveData.verticalAxis * dotProductFront * 6f)
+                + _surfer.moveData.ladderClimbDir * (_surfer.moveData.horizontalAxis * dotProductRight * 6f)
+                // lt/rt
+                + dotProductRight * _surfer.moveData.verticalAxis * 6f * -rightLadderClimbDir
+                + dotProductFront * _surfer.moveData.horizontalAxis * 6f * rightLadderClimbDir;
+
+            _surfer.moveData.velocity = Vector3.Lerp (
+                _surfer.moveData.velocity,
+                _surfer.moveData.ladderVelocity,
+                Time.deltaTime * 10f
+            );
 
             LadderCheck (Vector3.one, _surfer.moveData.ladderDirection);
             
             Trace floorTrace = TraceToFloor ();
-            if (_surfer.moveData.verticalAxis < 0f && floorTrace.hitCollider != null && Vector3.Angle (Vector3.up, floorTrace.planeNormal) <= _surfer.moveData.slopeLimit) {
+            if (floorTrace.hitCollider != null
+                && Vector3.Angle (Vector3.up, floorTrace.planeNormal) <= _surfer.moveData.slopeLimit
+                && (
+                    (_surfer.moveData.verticalAxis < 0f && dotProductFront > 0f)
+                    || (_surfer.moveData.verticalAxis > 0f && dotProductFront < 0f)
+                    || (_surfer.moveData.horizontalAxis < 0f && dotProductRight > 0f)
+                    || (_surfer.moveData.horizontalAxis > 0f && dotProductRight < 0f)
+                )) {
 
                 _surfer.moveData.velocity = _surfer.moveData.ladderNormal * 0.5f;
                 _surfer.moveData.ladderVelocity = Vector3.zero;
@@ -390,7 +418,7 @@ namespace Fragsurf.Movement {
 
             if (_surfer.moveData.wishJump) {
 
-                _surfer.moveData.velocity = _surfer.moveData.ladderNormal * 4f;
+                _surfer.moveData.velocity = _surfer.moveData.ladderNormal * 3f;
                 _surfer.moveData.ladderVelocity = Vector3.zero;
                 _surfer.moveData.climbingLadder = false;
                 
@@ -613,7 +641,7 @@ namespace Fragsurf.Movement {
             if (_surfer.collider == null)
                 return;
 
-            bool grounded = _surfer.groundObject != null;
+            bool grounded = true || _surfer.groundObject != null;
             bool wantsToCrouch = _surfer.moveData.crouching;
 
             float crouchingHeight = Mathf.Clamp (_surfer.moveData.crouchingHeight, 0.01f, 1f);
