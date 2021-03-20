@@ -29,6 +29,7 @@ namespace Fragsurf.Movement {
         [Header("View Settings")]
         public Transform viewTransform;
         public Transform playerRotationTransform;
+        private PlayerAiming _playerAiming;
 
         [Header ("Crouching setup")]
         public float crouchingHeightMultiplier = 0.5f;
@@ -41,6 +42,7 @@ namespace Fragsurf.Movement {
         public bool slidingEnabled = false;
         public bool laddersEnabled = true;
         public bool supportAngledLadders = true;
+        public bool fallDamageEnabled = true;
 
         [Header ("Step offset (can be buggy, enable at your own risk)")]
         public bool useStepOffset = false;
@@ -52,6 +54,7 @@ namespace Fragsurf.Movement {
         
         private GameObject _groundObject;
         private Vector3 _baseVelocity;
+        private float _fallingVelocity;
         private Collider _collider;
         private Vector3 _angles;
         private Vector3 _startPosition;
@@ -93,6 +96,13 @@ namespace Fragsurf.Movement {
         public Vector3 up { get { return viewTransform.up; } }
         
         Vector3 prevPosition;
+
+        // public GameObject hudCanvas;
+        
+        ////// Syncvars //////
+        
+        [SyncVar(hook=nameof(HealthChanged))]
+        public float health = 100f;
         
         ////// Using things //////
         
@@ -115,7 +125,7 @@ namespace Fragsurf.Movement {
             raycastMask = ~(1 << LayerMask.NameToLayer("Player"));
             
             _controller.playerTransform = playerRotationTransform;
-            
+
             if (viewTransform != null) {
 
                 _controller.camera = viewTransform;
@@ -128,8 +138,13 @@ namespace Fragsurf.Movement {
         private void Start () {
             if (!isLocalPlayer) {
                 GetComponentInChildren<Camera>().enabled = false;
+                foreach (var canvas in GetComponentsInChildren<Canvas>()) {
+                    canvas.enabled = false;
+                }
                 // return;
             }
+
+            _playerAiming = viewTransform.gameObject.GetComponent<PlayerAiming>();
             
             _colliderObject = new GameObject ("PlayerCollider");
             _colliderObject.layer = gameObject.layer;
@@ -235,10 +250,28 @@ namespace Fragsurf.Movement {
 
         private void Update () {
             _colliderObject.transform.rotation = Quaternion.identity;
-
-
+            
             //UpdateTestBinds ();
             if (isLocalPlayer) UpdateMoveData();
+            
+            // Fall damage
+            if (fallDamageEnabled) {
+                float fallDiff = _moveData.velocity.y - _fallingVelocity;
+                if (Mathf.Abs(fallDiff) > 1f) {
+                    Debug.Log($"fallDiff: {fallDiff}");
+                }
+                if (fallDiff > 20f & groundObject != null) {
+                    if (isServer) {
+                        TakeDamage(10, false);
+                    }
+                    if (isLocalPlayer) {
+                        _playerAiming.ViewPunch(new Vector2(-3 * (fallDiff / 15), 0));
+                    }
+                    Debug.Log($"Splat at {fallDiff}");
+                }
+            }
+
+            _fallingVelocity = _moveData.velocity.y;
 
             // Previous movement code
             Vector3 positionalMovement = transform.position - prevPosition;
@@ -394,7 +427,7 @@ namespace Fragsurf.Movement {
             float maxYVel = Mathf.Max (moveData.velocity.y, 10f);
             Vector3 newVelocity = new Vector3 (moveData.velocity.x + impactVelocity.x, Mathf.Clamp (moveData.velocity.y + Mathf.Clamp (impactVelocity.y, -0.5f, 0.5f), -maxYVel, maxYVel), moveData.velocity.z + impactVelocity.z);
 
-            newVelocity = Vector3.ClampMagnitude (newVelocity, Mathf.Max (moveData.velocity.magnitude, 30f));
+            newVelocity = Vector3.ClampMagnitude(newVelocity, Mathf.Max (moveData.velocity.magnitude, 30f));
             moveData.velocity = newVelocity;
 
         }
@@ -418,9 +451,10 @@ namespace Fragsurf.Movement {
                     useButton.active = true;
                 }
 
-                NetworkedButton nb = hit.collider.gameObject.GetComponent<NetworkedButton>();
-                if (nb != null && SimpleInput.GetButtonDown("Use")) {
-                    nb.CmdExecuteAction();
+                IInteractableEntity ie = hit.collider.gameObject.GetComponent<IInteractableEntity>();
+                Debug.Log(ie);
+                if (ie != null && SimpleInput.GetButtonDown("Use")) {
+                    ie.CmdExecuteAction(gameObject);
                 }
             } else {
                 usableGameObject = null;
@@ -434,6 +468,38 @@ namespace Fragsurf.Movement {
             _controller.Teleport(position, resetVelocity);
             _moveData.velocity = Vector3.zero;
             _moveData.fallingVelocity = 0f;
+        }
+        
+        public void TakeDamage(float amount, bool doBob = true) {
+            if (!isServer) return;
+
+            health -= amount;
+            RpcDamage(amount, doBob);
+        }
+
+        public void Heal(float amount) {
+            if (!isServer) return;
+
+            health += amount;
+        }
+
+        [ClientRpc]
+        public void RpcDamage(float amount, bool doBob) {
+            if (base.isLocalPlayer && doBob) {
+                _playerAiming.ViewPunch(new Vector2(-3, 0));
+            }
+            Debug.Log("Took damage:" + amount);
+        }
+
+        [ClientRpc]
+        public void RpcHeal(float amount) {
+            if (base.isLocalPlayer) {
+                // pee pee poo poo
+            }
+        }
+
+        public void HealthChanged(float oldAmount, float newAmount) {
+            
         }
     }
 

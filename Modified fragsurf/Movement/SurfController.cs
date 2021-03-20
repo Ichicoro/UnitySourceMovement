@@ -376,13 +376,14 @@ namespace Fragsurf.Movement {
         private void LadderPhysics () {
             var dotProductFront = -Vector3.Dot(_surfer.moveData.ladderNormal, _surfer.moveData.playerTransform.forward);
             var dotProductRight = -Vector3.Dot(_surfer.moveData.ladderNormal, _surfer.moveData.playerTransform.right);
-            var rightLadderClimbDir = Quaternion.Euler(0f, 0f, 90f) * _surfer.moveData.ladderClimbDir;
+            // var rightLadderClimbDir = Quaternion.Euler(0f, 0f, 90f) * _surfer.moveData.ladderClimbDir;
+            var rightLadderClimbDir = Quaternion.AngleAxis(-90f, Vector3.up) * _surfer.moveData.ladderNormal;
             
             Debug.Log(_surfer.moveData.ladderDirection);
             
             Debug.DrawRay(playerTransform.position, _surfer.moveData.ladderClimbDir.normalized, Color.yellow);
-            Debug.DrawRay(playerTransform.position, _surfer.moveData.ladderClimbDir.normalized, Color.red);
-            Debug.DrawRay(playerTransform.position, _surfer.moveData.ladderClimbDir.normalized, Color.blue);
+            Debug.DrawRay(playerTransform.position, _surfer.moveData.ladderDirection.normalized, Color.red);
+            Debug.DrawRay(playerTransform.position, rightLadderClimbDir.normalized, Color.blue);
 
             _surfer.moveData.ladderVelocity =
                 // up/dn
@@ -426,7 +427,7 @@ namespace Fragsurf.Movement {
             
         }
         
-        private void Accelerate (Vector3 wishDir, float wishSpeed, float acceleration, bool yMovement) {
+        private void Accelerate(Vector3 wishDir, float wishSpeed, float acceleration, bool yMovement) {
 
             // Initialise variables
             float _addSpeed;
@@ -451,7 +452,7 @@ namespace Fragsurf.Movement {
 
         }
 
-        private void ApplyFriction (float t, bool yAffected, bool grounded) {
+        private void ApplyFriction(float t, bool yAffected, bool grounded) {
 
             // Initialise variables
             Vector3 _vel = _surfer.moveData.velocity;
@@ -495,7 +496,7 @@ namespace Fragsurf.Movement {
         /// 
         /// </summary>
         /// <returns></returns>
-        private Vector3 AirInputMovement () {
+        private Vector3 AirInputMovement() {
 
             Vector3 wishVel, wishDir;
             float wishSpeed;
@@ -567,8 +568,12 @@ namespace Fragsurf.Movement {
             var trace = TraceToFloor ();
 
             float groundSteepness = Vector3.Angle (Vector3.up, trace.planeNormal);
-
-            if (trace.hitCollider == null || groundSteepness > _config.slopeLimit || (jumping && _surfer.moveData.velocity.y > 0f)) {
+            
+            // Check if on a "sticky" slope
+            var isStickySlope = trace.hitCollider != null && trace.hitCollider.transform.GetComponentInParent<StickySurface>() != null;
+            // Debug.Log(isStickySlope);
+            
+            if (trace.hitCollider == null|| (groundSteepness > _config.slopeLimit && !isStickySlope)|| (jumping && _surfer.moveData.velocity.y > 0f)) {
 
                 SetGround (null);
 
@@ -672,7 +677,7 @@ namespace Fragsurf.Movement {
                 } else if (_surfer.collider.GetType () == typeof (CapsuleCollider)) {
 
                     // Capsule collider
-                    CapsuleCollider capsuleCollider = (CapsuleCollider)_surfer.collider;
+                    CapsuleCollider capsuleCollider = (CapsuleCollider) _surfer.collider;
                     capsuleCollider.height = _surfer.moveData.defaultHeight * crouchingHeight;
 
                 }
