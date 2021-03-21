@@ -477,6 +477,20 @@ namespace Fragsurf.Movement {
             RpcDamage(amount, doBob);
         }
 
+        [ClientRpc]
+        public void RpcAddVelocity(Vector3 velocity) {
+            if (!isLocalPlayer) return;
+
+            _moveData.velocity += velocity;
+        }
+        
+        [ClientRpc]
+        public void RpcAddPosition(Vector3 position) {
+            if (!isLocalPlayer) return;
+
+            _moveData.playerTransform.position += position;
+        }
+
         public void Heal(float amount) {
             if (!isServer) return;
 
@@ -485,7 +499,7 @@ namespace Fragsurf.Movement {
 
         [ClientRpc]
         public void RpcDamage(float amount, bool doBob) {
-            if (base.isLocalPlayer && doBob) {
+            if (isLocalPlayer && doBob) {
                 _playerAiming.ViewPunch(new Vector2(-3, 0));
             }
             Debug.Log("Took damage:" + amount);
