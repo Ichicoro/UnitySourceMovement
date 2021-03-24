@@ -1,7 +1,8 @@
-﻿using UnityEngine;
+﻿using Fragsurf.Movement;
+using UnityEngine;
 using Mirror;
 
-public class PlayerAiming : MonoBehaviour
+public class PlayerAiming : NetworkBehaviour
 {
 	[Header("References")]
 	public Transform bodyTransform;
@@ -61,7 +62,7 @@ public class PlayerAiming : MonoBehaviour
 		realRotation.z = Mathf.Lerp(realRotation.z, 0f, Time.deltaTime * 3f);
 
 		//Apply real rotation to body
-		bodyTransform.eulerAngles = Vector3.Scale(realRotation, new Vector3(0f, 1f, 0f));
+		(daddy as SurfCharacter).CmdDoBodyTransform(realRotation);
 
 		//Apply rotation and recoil
 		Vector3 cameraEulerPunchApplied = realRotation;

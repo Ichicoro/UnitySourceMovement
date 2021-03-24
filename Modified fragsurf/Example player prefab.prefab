@@ -811,6 +811,7 @@ MonoBehaviour:
   slidingEnabled: 0
   laddersEnabled: 1
   supportAngledLadders: 1
+  fallDamageEnabled: 1
   useStepOffset: 1
   stepOffset: 0.35
   movementConfig:
@@ -866,6 +867,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sceneId: 0
   serverOnly: 0
+  visible: 0
   m_AssetId: 
   hasSpawned: 0
 --- !u!114 &-6735568988265247374
@@ -881,11 +883,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   syncMode: 0
-  syncInterval: 0
-  clientAuthority: 1
-  localPositionSensitivity: 0.001
+  syncInterval: 0.1
+  clientAuthority: 0
+  localPositionSensitivity: 0.01
   localRotationSensitivity: 0.01
   localScaleSensitivity: 0.01
+  compressRotation: 0
+  interpolateScale: 1
+  syncScale: 1
 --- !u!114 &5648733548896862094
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -904,6 +909,9 @@ MonoBehaviour:
   localPositionSensitivity: 0.001
   localRotationSensitivity: 0.01
   localScaleSensitivity: 0.01
+  compressRotation: 0
+  interpolateScale: 1
+  syncScale: 1
   target: {fileID: 5467285085316221433}
 --- !u!1 &5467285085316221438
 GameObject:

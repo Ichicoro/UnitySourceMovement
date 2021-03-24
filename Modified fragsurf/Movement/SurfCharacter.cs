@@ -56,13 +56,13 @@ namespace Fragsurf.Movement {
         private Vector3 _baseVelocity;
         private float _fallingVelocity;
         private Collider _collider;
-        private Vector3 _angles;
+        [SyncVar] private Vector3 _angles;
         private Vector3 _startPosition;
         private GameObject _colliderObject;
         private GameObject _cameraWaterCheckObject;
         private CameraWaterCheck _cameraWaterCheck;
 
-        private MoveData _moveData = new MoveData ();
+        [SyncVar] private MoveData _moveData = new MoveData ();
         private SurfController _controller = new SurfController ();
 
         private Rigidbody rb;
@@ -144,7 +144,16 @@ namespace Fragsurf.Movement {
                 // return;
             }
 
+            if (viewTransform == null)
+                viewTransform = Camera.main.transform;
+            
+            _moveData.playerTransform = transform;
+            _moveData.viewTransform = viewTransform;
+            _moveData.viewTransformDefaultLocalPos = viewTransform.localPosition;
+
+
             _playerAiming = viewTransform.gameObject.GetComponent<PlayerAiming>();
+            if (!isServer) return;
             
             _colliderObject = new GameObject ("PlayerCollider");
             _colliderObject.layer = gameObject.layer;
@@ -169,9 +178,6 @@ namespace Fragsurf.Movement {
             _cameraWaterCheck = _cameraWaterCheckObject.AddComponent<CameraWaterCheck> ();
 
             prevPosition = transform.position;
-
-            if (viewTransform == null)
-                viewTransform = Camera.main.transform;
 
             if (playerRotationTransform == null && transform.childCount > 0)
                 playerRotationTransform = transform.GetChild (0);
@@ -249,10 +255,15 @@ namespace Fragsurf.Movement {
         }
 
         private void Update () {
-            _colliderObject.transform.rotation = Quaternion.identity;
             
             //UpdateTestBinds ();
-            if (isLocalPlayer) UpdateMoveData();
+            if (isLocalPlayer) {
+                UpdateMoveData();
+                CheckCrosshair();
+            }
+
+            if (!isServer || true) return;
+            _colliderObject.transform.rotation = Quaternion.identity;
             
             // Fall damage
             if (fallDamageEnabled) {
@@ -283,9 +294,6 @@ namespace Fragsurf.Movement {
                 numberOfTriggers = triggers.Count;
 
                 underwater = false;
-                if (!isLocalPlayer) {
-                    Debug.Log(underwater);
-                }
                 
                 triggers.RemoveAll(item => item == null);
                 foreach (Collider trigger in triggers) {
@@ -305,15 +313,11 @@ namespace Fragsurf.Movement {
             if (allowCrouch)
                 _controller.Crouch(this, movementConfig, Time.deltaTime);
 
-            if (isLocalPlayer)
+            // if (isLocalPlayer)
                 _controller.ProcessMovement(this, movementConfig, Time.deltaTime);
-
-            if (isLocalPlayer) CheckCrosshair();
 
             transform.position = moveData.origin;
             prevPosition = transform.position;
-
-            _colliderObject.transform.rotation = Quaternion.identity;
             
             Debug.DrawRay(viewTransform.position, viewTransform.forward, Color.green);
         }
@@ -332,8 +336,8 @@ namespace Fragsurf.Movement {
 
         private void UpdateMoveData () {
             
-            _moveData.verticalAxis = Input.GetAxisRaw ("Vertical");
-            _moveData.horizontalAxis = Input.GetAxisRaw ("Horizontal");
+            _moveData.verticalAxis = Input.GetAxisRaw("Vertical");
+            _moveData.horizontalAxis = Input.GetAxisRaw("Horizontal");
 
             _moveData.sprinting = Input.GetButton ("Sprint");
             
@@ -342,12 +346,34 @@ namespace Fragsurf.Movement {
 
             if (!Input.GetButton ("Crouch"))
                 _moveData.crouching = false;
-            
+
+            if (Input.GetButtonDown ("Jump"))
+                _moveData.wishJump = true;
+
+            if (!Input.GetButton ("Jump"))
+                _moveData.wishJump = false;
+
+            _moveData.viewTransform = _playerAiming.bodyTransform;
+            CmdDoMoveDataUpdate(_moveData);
+        }
+        
+        [Command]
+        public void CmdDoBodyTransform(Vector3 realRotation) {
+            transform.eulerAngles = Vector3.Scale(realRotation, new Vector3(0f, 1f, 0f));
+        }
+
+        [Command]
+        private void CmdDoMoveDataUpdate(MoveData data) {
+            _moveData.verticalAxis = data.verticalAxis;
+            _moveData.horizontalAxis = data.horizontalAxis;
+            // TODO
+            _moveData.wishJump = data.wishJump;
+            _moveData.crouching = data.crouching;
+
             bool moveLeft = _moveData.horizontalAxis < 0f;
             bool moveRight = _moveData.horizontalAxis > 0f;
             bool moveFwd = _moveData.verticalAxis > 0f;
             bool moveBack = _moveData.verticalAxis < 0f;
-            bool jump = Input.GetButton ("Jump");
 
             if (!moveLeft && !moveRight)
                 _moveData.sideMove = 0f;
@@ -363,14 +389,69 @@ namespace Fragsurf.Movement {
             else if (moveBack)
                 _moveData.forwardMove = -moveConfig.acceleration;
             
-            if (Input.GetButtonDown ("Jump"))
-                _moveData.wishJump = true;
-
-            if (!Input.GetButton ("Jump"))
-                _moveData.wishJump = false;
-            
             _moveData.viewAngles = _angles;
+            _moveData.viewTransform = data.viewTransform;
+            
+            
+            
+            // TEST //
+            
+            
+            _colliderObject.transform.rotation = Quaternion.identity;
+            
+            // Fall damage
+            if (fallDamageEnabled) {
+                float fallDiff = _moveData.velocity.y - _fallingVelocity;
+                if (Mathf.Abs(fallDiff) > 1f) {
+                    Debug.Log($"fallDiff: {fallDiff}");
+                }
+                if (fallDiff > 20f & groundObject != null) {
+                    if (isServer) {
+                        TakeDamage(10, false);
+                    }
+                    if (isLocalPlayer) {
+                        _playerAiming.ViewPunch(new Vector2(-3 * (fallDiff / 15), 0));
+                    }
+                    Debug.Log($"Splat at {fallDiff}");
+                }
+            }
 
+            _fallingVelocity = _moveData.velocity.y;
+
+            // Previous movement code
+            Vector3 positionalMovement = transform.position - prevPosition;
+            transform.position = prevPosition;
+            moveData.origin += positionalMovement;
+
+            // Triggers
+            if (numberOfTriggers != triggers.Count) {
+                numberOfTriggers = triggers.Count;
+
+                underwater = false;
+                
+                triggers.RemoveAll(item => item == null);
+                foreach (Collider trigger in triggers) {
+                    if (trigger == null)
+                        continue;
+                    
+                    if (trigger.GetComponentInParent<Water>())
+                        underwater = true;
+                }
+
+            }
+
+            _moveData.cameraUnderwater = _cameraWaterCheck.IsUnderwater();
+            _cameraWaterCheckObject.transform.position = viewTransform.position;
+            moveData.underwater = underwater;
+
+            if (allowCrouch)
+                _controller.Crouch(this, movementConfig, Time.deltaTime);
+
+            // if (isLocalPlayer)
+                _controller.ProcessMovement(this, movementConfig, Time.deltaTime);
+
+            transform.position = moveData.origin;
+            prevPosition = transform.position;
         }
 
         private void DisableInput () {
