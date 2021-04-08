@@ -646,7 +646,7 @@ namespace Fragsurf.Movement {
             if (_surfer.collider == null)
                 return;
 
-            bool grounded = true || _surfer.groundObject != null;
+            bool grounded = surfer.groundObject != null; // Wanna crouch everytime? then set this to true
             bool wantsToCrouch = _surfer.moveData.crouching;
 
             float crouchingHeight = Mathf.Clamp (_surfer.moveData.crouchingHeight, 0.01f, 1f);

@@ -9,10 +9,32 @@ namespace Fragsurf.Movement {
         Ladder, // not implemented
     }
 
-    public class MoveData {
+    public class InputActions {
+        public bool Jump = false;
+        public bool Duck = false;
+        public bool Speed = false;
+        public float MoveRight = 0f;
+        public float MoveForward = 0f;
+        public bool HandAction = false;
+        public bool HandAction2 = false;
+        public bool Interact = false;
+        public bool Slot1 = false;
+        public bool Slot2 = false;
+        public bool Slot3 = false;
+        public bool Slot4 = false;
+        public bool Slot5 = false;
+        public bool Drop = false;
+        public bool Reload = false;
+        public bool NextItem = false;
+        public bool PrevItem = false;
+        public bool Brake = false;
+        public bool Flashlight = false;
+    }
 
+    public class MoveData {
         ///// Fields /////
-        
+        public InputActions prevInputActions;
+        public InputActions inputActions;
         public Transform playerTransform;
         public Transform viewTransform;
         public Vector3 viewTransformDefaultLocalPos;
