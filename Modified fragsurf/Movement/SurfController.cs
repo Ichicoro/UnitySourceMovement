@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using Fragsurf.TraceUtil;
+using Mirror;
 
 namespace Fragsurf.Movement {
     public class SurfController {
@@ -35,6 +36,7 @@ namespace Fragsurf.Movement {
         ///// Methods /////
 
         Vector3 groundNormal = Vector3.up;
+        bool isStickySlope;
 
         /// <summary>
         /// 
@@ -217,6 +219,9 @@ namespace Fragsurf.Movement {
 
                     // Set the target speed of the player
                     float _wishSpeed = _wishDir.magnitude;
+                    if (isStickySlope) {
+                        forwardVelocity = Vector3.Cross (groundNormal, Quaternion.AngleAxis (-90, Vector3.up) * _surfer.moveData.velocity);
+                    }
                     _wishSpeed *= speed;
 
                     // Accelerate
@@ -228,7 +233,14 @@ namespace Fragsurf.Movement {
                     _surfer.moveData.velocity.y = yVel;
 
                     // Calculate how much slopes should affect movement
-                    float yVelocityNew = forwardVelocity.normalized.y * new Vector3 (_surfer.moveData.velocity.x, 0f, _surfer.moveData.velocity.z).magnitude;
+                    float yVelocityNew = 1f;
+                    if (!isStickySlope) {
+                        yVelocityNew = forwardVelocity.normalized.y * new Vector3 (_surfer.moveData.velocity.x, 0f, _surfer.moveData.velocity.z).magnitude;
+                    } else {
+                        Debug.Log("Sticky surf!");
+                        yVelocityNew = forwardVelocity.normalized.y * new Vector3 (_surfer.moveData.velocity.x, _surfer.moveData.velocity.x, _surfer.moveData.velocity.z).magnitude / 2;
+                    }
+                    Debug.DrawRay(playerTransform.position, forwardVelocity, Color.red);
 
                     // Apply the Y-movement from slopes
                     _surfer.moveData.velocity.y = yVelocityNew * (_wishDir.y < 0f ? 1.2f : 1.0f);
@@ -570,10 +582,10 @@ namespace Fragsurf.Movement {
             float groundSteepness = Vector3.Angle (Vector3.up, trace.planeNormal);
             
             // Check if on a "sticky" slope
-            var isStickySlope = trace.hitCollider != null && trace.hitCollider.transform.GetComponentInParent<StickySurface>() != null;
+            isStickySlope = trace.hitCollider != null && trace.hitCollider.transform.GetComponentInParent<StickySurface>() != null;
             // Debug.Log(isStickySlope);
             
-            if (trace.hitCollider == null|| (groundSteepness > _config.slopeLimit && !isStickySlope)|| (jumping && _surfer.moveData.velocity.y > 0f)) {
+            if (trace.hitCollider == null || (groundSteepness > _config.slopeLimit && !isStickySlope) || (jumping && _surfer.moveData.velocity.y > 0f)) {
 
                 SetGround (null);
 
@@ -800,6 +812,5 @@ namespace Fragsurf.Movement {
             if (resetVelocity)
                 speed = 0f;
         }
-
     }
 }

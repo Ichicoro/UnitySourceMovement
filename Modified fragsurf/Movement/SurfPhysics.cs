@@ -35,7 +35,7 @@ namespace Fragsurf.Movement {
             // manual collision resolving
             int numOverlaps = 0;
             if (collider is CapsuleCollider) {
-
+                
                 var capc = collider as CapsuleCollider;
 
                 Vector3 point1, point2;

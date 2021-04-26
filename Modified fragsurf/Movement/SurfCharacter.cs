@@ -98,6 +98,8 @@ namespace Fragsurf.Movement {
         
         Vector3 prevPosition;
 
+        private AudioSource _audioSource;
+
         // public GameObject hudCanvas;
         
         ////// Syncvars //////
@@ -154,6 +156,7 @@ namespace Fragsurf.Movement {
 
 
             _playerAiming = viewTransform.gameObject.GetComponent<PlayerAiming>();
+            _audioSource = GetComponent<AudioSource>();
             if (!isServer) return;
             
             _colliderObject = new GameObject ("PlayerCollider");
@@ -660,6 +663,15 @@ namespace Fragsurf.Movement {
             if (base.isLocalPlayer) {
                 // pee pee poo poo
             }
+        }
+
+        [ClientRpc]
+        public void RpcPlayHEVSound(string soundFile) {
+            if (!isLocalPlayer) {
+                return;
+            }
+            
+            _audioSource.PlayOneShot((AudioClip) Resources.Load(soundFile));
         }
 
         public void HealthChanged(float oldAmount, float newAmount) {
